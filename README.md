@@ -23,13 +23,36 @@ A Python-based hand tracking and gesture recognition system that uses MediaPipe 
 ## 📁 Project Structure
 
 ```
-python-sensor/
-├── main.py              # Main application loop
-├── hand_detector.py     # HandDetector class for detection logic
-├── utils/
-│   ├── __init__.py
-│   └── drawing_utils.py # Drawing helper functions
-└── README.md
+hand-2-cursor/
+├── main.py                         # Entry point (mode switching, webcam loop)
+├── config.py                       # Project-wide constants
+├── requirements.txt                # Python dependencies
+├── README.md
+├── ROADMAP.md                      # Development roadmap & reference
+├── .gitignore
+│
+├── core/                           # Detection, classification, NLP
+│   ├── hand_detector.py            # Hand landmark detection (MediaPipe)
+│   ├── feature_extractor.py        # Landmark → feature vector
+│   ├── sign_classifier.py          # Sign language classifier
+│   └── sentence_builder.py         # Word/sentence accumulation
+│
+├── controllers/                    # Mode controllers
+│   ├── mouse_controller.py         # Gesture-based mouse control
+│   └── sign_language_controller.py # Sign language interpreter mode
+│
+├── utils/                          # Drawing & display helpers
+│   ├── drawing_utils.py            # Hand landmarks, skeleton, bounding box
+│   └── text_overlay.py             # On-screen text display
+│
+├── data/                           # Data collection & preprocessing
+│   ├── collect_images.py           # Webcam image capture script
+│   └── extract_landmarks.py        # Landmark extraction script
+│
+├── models/                         # Training scripts & saved weights
+│   └── train_model.py              # Model training script
+│
+└── assets/                         # Static assets & reference images
 ```
 
 ## 🚀 Getting Started

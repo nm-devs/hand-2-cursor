@@ -5,7 +5,7 @@ import cv2
 import time
 from pathlib import Path
 from config import (
-    NUM_CLASSES,
+    CLASSES,
     IMAGES_PER_CLASS,
     CAM_HEIGHT,
     CAM_WIDTH,
@@ -26,8 +26,8 @@ if not cap.isOpened():
     print("  2. CAMERA_INDEX in config.py is correct (0 is usually default)")
     exit(1)
 
-for class_id in range(NUM_CLASSES):
-    class_dir = os.path.join(DATA_DIR, str(class_id))
+for class_letter in CLASSES:
+    class_dir = os.path.join(DATA_DIR, class_letter)
     os.makedirs(class_dir, exist_ok=True)
 
     # wait for user to get ready
@@ -39,7 +39,7 @@ for class_id in range(NUM_CLASSES):
             cv2.destroyAllWindows()
             exit(1)
         frame = cv2.flip(frame, 1) # mirror effect
-        cv2.putText(frame, f'Class {class_id} - Press "S" to start',(50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
+        cv2.putText(frame, f'Letter {class_letter.upper()} - Press "S" to start',(50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
         cv2.putText(frame, f'Press "Q" to quit',(50,100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,0), 2)    
         cv2.imshow('Collect', frame)
         key = cv2.waitKey(1) & 0xFF
@@ -83,12 +83,12 @@ for class_id in range(NUM_CLASSES):
     for img_num in range(IMAGES_PER_CLASS):
         ret, frame = cap.read()
         if not ret:
-            print(f"WARNING: Failed to read frame {img_num} for class {class_id}. Skipping.")
+            print(f"WARNING: Failed to read frame {img_num} for letter {class_letter.upper()}. Skipping.")
             continue
         frame = cv2.flip(frame, 1)
         
         # overlay progress
-        cv2.putText(frame, f'Class {class_id} - Image {img_num+1}/{IMAGES_PER_CLASS}', (50,50), 
+        cv2.putText(frame, f'Letter {class_letter.upper()} - Image {img_num+1}/{IMAGES_PER_CLASS}', (50,50), 
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
         cv2.putText(frame, 'Press "Q" to quit', (50,100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,0), 2)
         cv2.imshow('Collect', frame)

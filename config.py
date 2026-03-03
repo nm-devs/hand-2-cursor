@@ -25,12 +25,13 @@ FINGER_CIRCLE_RADIUS = 15     # Radius for fingertip circles
 WINDOW_TITLE = "Hand Tracking"
 
 # ── Data Collection ───────────────────────────────────
+CLASSES = list("abcdefghiklmnopqrstuvwxy")  # A-Z minus J and Z
 IMAGES_PER_CLASS = 50
 COUNTDOWN = 3
 DELAY_BETWEEN_CLASSES = 50 # milliseconds
 
 # ── Model ───────────────────────────────────────────
-NUM_CLASSES = 3
+NUM_CLASSES = len(CLASSES)
 DATA_DIR= "./data/raw"
 
 # augmentation paths

@@ -1,7 +1,9 @@
 # folders
-/data/raw/
+/data/raw/*
+!/data/raw/.gitkeep
 /data/augmented/
-/data/asl_mnist/
+/data/asl_mnist/*
+!/data/asl_mnist/.gitkeep
 __pycache__/
 models/saved/
 .env

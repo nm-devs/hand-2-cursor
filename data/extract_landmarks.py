@@ -82,7 +82,7 @@ def extract_landmarks_batch(
     )
 
     for class_folder in class_folders:
-        class_label = int(class_folder.name)
+        class_label = class_folder.name
         logging.info(f"processing class {class_label}...")
 
         images = list(class_folder.glob("*.jpg")) + \
@@ -126,7 +126,7 @@ def extract_landmarks_batch(
     logging.info("converting to numpy arrays...")
 
     all_data = np.array(all_data, dtype=np.float32)
-    all_labels = np.array(all_labels, dtype=np.int32)
+    all_labels = np.array(all_labels)
 
     output_dict = {
         "data": all_data,

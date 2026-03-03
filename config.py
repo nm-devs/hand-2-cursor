@@ -34,7 +34,7 @@ NUM_CLASSES = 3
 DATA_DIR= "./data/raw"
 
 # augmentation paths
-AUGMENTED_DIR = "data/augmented"
+# AUGMENTED_DIR = "data/augmented"
 
 # augmentation settings
 AUGMENT_CONFIG = {

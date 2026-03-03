@@ -15,9 +15,16 @@ from config import (
     CAMERA_INDEX
 )
 
-cap=cv2.VideoCapture(CAMERA_INDEX)
+cap = cv2.VideoCapture(CAMERA_INDEX)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_WIDTH)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_HEIGHT)
+
+# Check if camera opened successfully
+if not cap.isOpened():
+    print("ERROR: Could not open camera (index={}).\nCheck:".format(CAMERA_INDEX))
+    print("  1. Camera is connected and not in use by another app")
+    print("  2. CAMERA_INDEX in config.py is correct (0 is usually default)")
+    exit(1)
 
 for class_id in range(NUM_CLASSES):
     class_dir = os.path.join(DATA_DIR, str(class_id))
@@ -27,7 +34,10 @@ for class_id in range(NUM_CLASSES):
     while True:
         ret, frame = cap.read()
         if not ret:
-            continue
+            print("ERROR: Failed to read from camera. Camera may be disconnected.")
+            cap.release()
+            cv2.destroyAllWindows()
+            exit(1)
         frame = cv2.flip(frame, 1) # mirror effect
         cv2.putText(frame, f'Class {class_id} - Press "S" to start',(50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
         cv2.putText(frame, f'Press "Q" to quit',(50,100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,0), 2)    
@@ -41,11 +51,14 @@ for class_id in range(NUM_CLASSES):
             break
     start_time = time.time()
 
-# countdown before starting collection
+    # countdown before starting collection
     while True:
         ret, frame = cap.read()
         if not ret:
-            continue
+            print("ERROR: Failed to read from camera during countdown.")
+            cap.release()
+            cv2.destroyAllWindows()
+            exit(1)
         frame = cv2.flip(frame, 1)
 
         elapsed = time.time() - start_time
@@ -70,24 +83,27 @@ for class_id in range(NUM_CLASSES):
     for img_num in range(IMAGES_PER_CLASS):
         ret, frame = cap.read()
         if not ret:
+            print(f"WARNING: Failed to read frame {img_num} for class {class_id}. Skipping.")
             continue
         frame = cv2.flip(frame, 1)
         
-        #overlay progress
+        # overlay progress
         cv2.putText(frame, f'Class {class_id} - Image {img_num+1}/{IMAGES_PER_CLASS}', (50,50), 
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
         cv2.putText(frame, 'Press "Q" to quit', (50,100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,0), 2)
         cv2.imshow('Collect', frame)
         timestamp = int(time.time() * 1000)
         cv2.imwrite(os.path.join(class_dir, f'{timestamp}.jpg'), frame)
-        cv2.waitKey(DELAY_BETWEEN_CLASSES) # small delay to avoid duplicates
-        key = cv2.waitKey(1) & 0xFF
+        # Wait for delay, then check for quit key
+        key = cv2.waitKey(DELAY_BETWEEN_CLASSES) & 0xFF
         if key == ord('q'):
             cap.release()
             cv2.destroyAllWindows()
             sys.exit(0)
 
-#clean up
+# clean up
 cap.release()
-cv2.destroyAllWindows() 
+cv2.destroyAllWindows()
+print("\n" + "="*50)
 print("Data collection complete!")
+print("="*50)

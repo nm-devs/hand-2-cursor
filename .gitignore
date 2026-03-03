@@ -1,5 +1,7 @@
 # folders
-/data/raw
+/data/raw/
+/data/augmented/
+/data/asl_mnist/
 __pycache__/
 models/saved/
 .env

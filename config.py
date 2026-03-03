@@ -36,6 +36,9 @@ DATA_DIR= "./data/raw"
 # augmentation paths
 # AUGMENTED_DIR = "data/augmented"
 
+# ── ASL MNIST ─────────────────────────────────────────
+ASL_MNIST_DIR = "data/asl_mnist"
+
 # augmentation settings
 AUGMENT_CONFIG = {
     "flip": True,

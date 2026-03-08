@@ -1,6 +1,6 @@
 import cv2
 import time
-import pickle
+from core.sign_classifier import SignClassifier
 from core.hand_detector import HandDetector
 from utils.text_overlay import draw_prediction
 from core.feature_extractor import FeatureExtractor
@@ -23,15 +23,14 @@ controllers = {
 # Initialize hand detector (start in single hand mode)
 detector = HandDetector(1, DETECTION_CONFIDENCE, TRACKING_CONFIDENCE)
 
-fe=FeatureExtractor(use_z=False)
+fe = FeatureExtractor(use_z=False)  # Must match training config
 
 # Load trained model
 try:
-    with open(".modelss/trained_model.pkl", "rb") as f:
-        model = pickle.load(f)
+    classifier = SignClassifier('models/trained_model.pkl')
 except FileNotFoundError:
     print("Trained model not found. Please run 'train_model.py' first to create the model file.")
-    model=None
+    classifier = None
 
 # Initialize webcam
 cap = cv2.VideoCapture(CAMERA_INDEX)
@@ -68,36 +67,24 @@ while True:
 
     # Process first detected hand with the active controller
     if hands_data:
+        controllers[mode].process_frame(frame, hands_data[0], detector)
         hand = hands_data[0]
         landmarks = hand['landmarks']
-        
-        # Test FeatureExtractor
-        features = fe.extract(landmarks)
-        normalized = fe.normalize(features)
 
-        # Predict sign 
-        if model is not None:
-            probabilities = model.predict_proba(normalized.reshape(1, -1))[0]
-            confidence = max(probabilities)
-            prediction = model.classes_[probabilities.argmax()]
-            smoother.add_prediction(prediction)
+        # Extract and normalize features
+        features = fe.extract(landmarks)
+        normalized_features = fe.normalize(features)
+
+        # Predict gesture
+        if classifier is not None:
+            label, confidence = classifier.predict(normalized_features)
+            smoother.add_prediction(label)
             stable = smoother.get_stable()
 
             # Update displayed sign if stable prediction is available
             if stable is not None:
                 displayed_sign = stable
                 displayed_confidence = confidence
-        
-        # Print debug info
-        print(f"Features shape: {features.shape}")
-        print(f"Features sample: {features[:6]}")  # First 3 landmarks (x,y,x,y,x,y)
-        print(f"Normalized shape: {normalized.shape}")
-        print(f"Normalized sample: {normalized[:6]}")
-        print("---")
-        
-        # Still use original controller logic
-        controllers[mode].process_frame(frame, hand, detector)
-        #prediction = model.predict(normalized.reshape(1, -1))       
 
     # Calculate FPS
     current_time = time.time()

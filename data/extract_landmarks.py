@@ -9,6 +9,8 @@ import numpy as np
 import pickle 
 from pathlib import Path
 import logging
+from core.sign_classifier import SignClassifier
+from core.feature_extractor import FeatureExtractor
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
@@ -125,3 +127,14 @@ def extract_landmarks_batch(
 if __name__ == "__main__":
     extract_landmarks_batch()
     print("\n✓ Landmark extraction completed!")
+
+clf = SignClassifier('models/trained_model.pkl')
+
+for features in feature_batch:
+    label, confidence = clf.predict(features)
+    results.append({
+        'features': features,
+        'predicted_label': label,
+        'confidence': confidence
+    })
+    

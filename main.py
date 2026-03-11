@@ -5,20 +5,24 @@ Initializes the hardware, machine learning models, and feature extractors
 to translate real-time hand gestures into actionable sign language translation.
 """
 
-import pickle
+
 import cv2
-import time
 import sys
+import time
+import pickle
 import logging
 import numpy as np
 
-from core.sign_classifier import SignClassifier
+from collections import deque
+from xml.parsers.expat import model
 from core.hand_detector import HandDetector
-from utils.text_overlay import draw_prediction, draw_sentence_builder_ui
-from core.feature_extractor import FeatureExtractor
+from core.sign_classifier import SignClassifier
+from core.gesture_detector import GestureDetector
 from core.sentence_builder import SentenceBuilder
+from core.feature_extractor import FeatureExtractor
 from utils.prediction_smoother import PredictionSmoother
-
+from utils.text_overlay import draw_prediction, draw_sentence_builder_ui
+from utils.gesture_display import draw_gesture_feedback, draw_sentence_display
 from config import (
     CAMERA_INDEX, CAM_WIDTH, CAM_HEIGHT,
     COLOR_PRIMARY, WINDOW_TITLE, CONFIDENCE_THRESHOLD
@@ -58,18 +62,43 @@ class ChironaApp:
             
         # Runtime state variables
         self.prev_time = 0
+        self.mode = "mouse"
+        self.prediction_history = deque(maxlen=5)  # For gesture vs sign distinction
         self.max_hands_mode = 1 # start with single hand mode
-        
         self.smoother = PredictionSmoother()
         self.sentence_builder = SentenceBuilder()
         self.displayed_sign = None
         self.displayed_confidence = None
         self.frame_count = 0
-
-    def _process_prediction(self, hand):
-        """Extract features, predict gesture, and smooth the output for the UI."""
-        landmarks = hand['landmarks']
         
+        # initilize gesture detector
+        self.gesture_detector = GestureDetector()
+        self.sentence_builder = SentenceBuilder()
+        self.last_detected_gesture = None
+        self.gesture_cooldown = 0.5  # seconds
+
+    def _process_prediction(self, hand, hands_data):
+        """Extract features, predict gesture, and smooth the output for the UI.
+        Uses OPTION A: Confidence-based filtering to detect gestures vs ASL signs."""
+        landmarks = hand['landmarks']
+        gesture = self.gesture_detector.detect_gesture(hands_data)
+        # detect gestures first (before smoothing) since they rely on raw landmark positions and we want to catch them even if the predicted sign is unstable
+        if gesture:
+            # handle gesture control immediately
+            if gesture == 'space':
+                self.sentence_builder.add_space()
+            elif gesture == 'backspace':
+                self.sentence_builder.backspace()
+            elif gesture == 'speak':
+                text = self.sentence_builder.speak()
+                print(f"Speaking: {text}")
+            elif gesture == 'clear':
+                self.sentence_builder.clear()
+            self.last_detected_gesture = gesture
+            # Skip letter detection when gesture is detected to focus on gesture
+            return
+        else:
+            self.last_detected_gesture = None           
         # Only predict every 3rd frame to improve FPS
         if self.frame_count % 3 == 0:
             # Extract and normalize features
@@ -80,13 +109,19 @@ class ChironaApp:
             if self.classifier is not None:
                 label, confidence = self.classifier.predict(normalized_features)
                 
-                # Only process predictions above a low confidence baseline, to avoid noise
+                #Track prediction history for gesture/sign distinction
+                if confidence > 0.70:  # Only track confident predictions
+                    self.prediction_history.append(label)
+                
+                # Check if this looks like a gesture (hand moving with 2+ different detections)
+                unique_predictions = len(set(self.prediction_history))
+                
+                # consistent predictions = likely ASL sign, varying predictions = likely gesture
                 if confidence > 0.0:
                     self.smoother.add_prediction(label)
-                
                 stable = self.smoother.get_stable_prediction()
 
-                # Update displayed sign if stable prediction is available
+                # update displayd sign if stabl prediction is available
                 if stable is not None:
                     self.displayed_sign = stable
                     self.displayed_confidence = confidence
@@ -155,7 +190,6 @@ class ChironaApp:
 
             # Display sentence builder UI
             draw_sentence_builder_ui(frame, self.sentence_builder, current_time)
-
             cv2.imshow(WINDOW_TITLE, frame)
 
             # Break loop if _handle_keypress asks to exit

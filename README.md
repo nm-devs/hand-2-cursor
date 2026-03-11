@@ -55,8 +55,8 @@ chirona/
 
 ```bash
 # Clone the repository
-git clone https://github.com/nm-devs/hand-2-cursor.git
-cd hand-2-cursor
+git clone https://github.com/nm-devs/Chirona.git
+cd Chirona
 
 # Create a virtual environment (optional but recommended)
 python -m venv .venv

@@ -133,6 +133,10 @@ See [ROADMAP.md](docs/ROADMAP.md) for the full development plan. Current progres
 
 ---
 
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
+
 > ⚠️ Project is actively in development — model training is ongoing and a live demo will be added upon completion.
 
 Made with ❤️ and Python

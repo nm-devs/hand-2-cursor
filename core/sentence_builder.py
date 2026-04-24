@@ -16,12 +16,14 @@ class SentenceBuilder:
         self.sentence = ""
         self.history = []  # Keep track of recent predictions for smoothing
         self.current_sign = None
+        self.last_confirmed_sign = None
         self.start_time = 0.0
         self.confirm_duration = CONFIRM_DURATION
         self.tts = tts if tts else (TextToSpeech() if TTS_ENABLED else None)
-        self.last_spoken_letter = None # prevent repeating same letter if held for multiple seconds
-        self.last_spoken_word = None # prevent repeating same word if held for multiple seconds
-    
+        self.last_spoken_letter = None
+        self.last_spoken_word = None
+
+
     def add_letter(self, letter):
         '''Adds a letter to the current word.'''
         self.current_word += letter
@@ -35,18 +37,21 @@ class SentenceBuilder:
     def update(self, sign, timestamp):
         if not sign:
             self.current_sign = None
+            self.last_confirmed_sign = None
             self.start_time = 0.0
             return
             
-        if sign != self.current_sign:
-            self.current_sign = sign
-            self.start_time = timestamp
-            logger.debug(f"New sign detected: {sign}")
-        elif timestamp - self.start_time >= self.confirm_duration:
-            logger.info(f"Sign confirmed after {self.confirm_duration}s hold: {sign}")
-            self.add_letter(sign)
-            self.current_sign = None
-            self.start_time = 0.0
+        if sign != self.last_confirmed_sign:
+            if sign != self.current_sign:
+                self.current_sign = sign
+                self.start_time = timestamp
+                logger.debug(f"New sign detected: {sign}")
+            elif timestamp - self.start_time >= self.confirm_duration:
+                logger.info(f"Sign confirmed after {self.confirm_duration}s hold: {sign}")
+                self.add_letter(sign)
+                self.last_confirmed_sign = sign
+                self.current_sign = None
+                self.start_time = 0.0
 
     def add_space(self):
         """Moves current_word to sentence with a space."""
@@ -83,6 +88,7 @@ class SentenceBuilder:
         self.current_word = ""
         self.sentence = ""
         self.current_sign = None
+        self.last_confirmed_sign = None
         self.start_time = 0.0
         self.last_spoken_letter = None
         self.last_spoken_word = None

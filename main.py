@@ -22,10 +22,11 @@ from core.sentence_builder import SentenceBuilder
 from core.feature_extractor import FeatureExtractor
 from utils.prediction_smoother import PredictionSmoother
 from utils.text_overlay import draw_prediction, draw_sentence_builder_ui
+from utils.text_to_speech import TextToSpeech
 from utils.gesture_display import draw_gesture_feedback, draw_sentence_display
 from config import (
     CAMERA_INDEX, CAM_WIDTH, CAM_HEIGHT,
-    COLOR_PRIMARY, WINDOW_TITLE, CONFIDENCE_THRESHOLD
+    COLOR_PRIMARY, WINDOW_TITLE, CONFIDENCE_THRESHOLD, TTS_ENABLED, TTS_SPEECH_RATE, TTS_VOLUME
 )
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -59,21 +60,30 @@ class ChironaApp:
         if not self.cap.isOpened():
             print("Failed to open camera")
             sys.exit(1)
-            
+        
+        # initialize text-to-speech system if enabled
+        self.tts = None 
+        if TTS_ENABLED:
+            try:
+                self.tts = TextToSpeech(rate=TTS_SPEECH_RATE, volume=TTS_VOLUME)
+                logging.info("Text-to-speech system initialized successfully.")
+            except Exception as e:
+                logging.error(f"Error initializing text-to-speech system: {e}")
+                self.tts = None
+        
         # Runtime state variables
         self.prev_time = 0
         self.mode = "mouse"
         self.prediction_history = deque(maxlen=5)  # For gesture vs sign distinction
         self.max_hands_mode = 1 # start with single hand mode
         self.smoother = PredictionSmoother()
-        self.sentence_builder = SentenceBuilder()
+        self.sentence_builder = SentenceBuilder(tts=self.tts)
         self.displayed_sign = None
         self.displayed_confidence = None
         self.frame_count = 0
         
         # initilize gesture detector
         self.gesture_detector = GestureDetector()
-        self.sentence_builder = SentenceBuilder()
         self.last_detected_gesture = None
         self.gesture_cooldown = 0.5  # seconds
 
@@ -81,24 +91,41 @@ class ChironaApp:
         """Extract features, predict gesture, and smooth the output for the UI.
         Uses OPTION A: Confidence-based filtering to detect gestures vs ASL signs."""
         landmarks = hand['landmarks']
+        
+        # Check for raw gesture first to prevent classifier fallback during cooldown/hold
+        raw_gesture = self.gesture_detector.detect_raw_gesture(hands_data)
+        
+        # Get smoothed gesture (respects cooldown and consistency)
         gesture = self.gesture_detector.detect_gesture(hands_data)
-        # detect gestures first (before smoothing) since they rely on raw landmark positions and we want to catch them even if the predicted sign is unstable
-        if gesture:
-            # handle gesture control immediately
-            if gesture == 'space':
-                self.sentence_builder.add_space()
-            elif gesture == 'backspace':
-                self.sentence_builder.backspace()
-            elif gesture == 'speak':
-                text = self.sentence_builder.speak()
-                print(f"Speaking: {text}")
-            elif gesture == 'clear':
-                self.sentence_builder.clear()
-            self.last_detected_gesture = gesture
-            # Skip letter detection when gesture is detected to focus on gesture
+        
+        # If ANY raw gesture is detected, we skip letter classification to avoid accidental typing
+        # while holding a gesture (like thumbs-up or space)
+        if raw_gesture:
+            if gesture:
+                # handle gesture control immediately
+                logging.info(f"Gesture triggered: {gesture}")
+                if gesture == 'space':
+                    self.sentence_builder.add_space()
+                    logging.info("Space gesture: added space")
+                elif gesture == 'backspace':
+                    self.sentence_builder.backspace()
+                    logging.info("Backspace gesture: removed character")
+                elif gesture == 'speak':
+                    text = self.sentence_builder.speak()
+                    logging.info(f"Speak gesture - Sentence: '{self.sentence_builder.sentence}' | Current word: '{self.sentence_builder.current_word}' | Full text: '{text}'")
+                elif gesture == 'clear':
+                    self.sentence_builder.clear()
+                    logging.info("Clear gesture: cleared sentence")
+                self.last_detected_gesture = gesture
+            else:
+                # Gesture is recognized but might be in cooldown or inconsistent
+                # We still block classification to prevent random letters
+                logging.debug(f"Raw gesture '{raw_gesture}' detected but not triggered (cooldown/smoothing)")
+            
+            # Skip letter detection when any gesture is detected
             return
         else:
-            self.last_detected_gesture = None           
+            self.last_detected_gesture = None
         # Only predict every 3rd frame to improve FPS
         if self.frame_count % 3 == 0:
             # Extract and normalize features
@@ -133,16 +160,26 @@ class ChironaApp:
         # Manually add space with spacebar
         if key == ord(' '):
             self.sentence_builder.add_space()
-            
+
+        #triggr speech with 's' key for testing without gesture
+        if key == ord('s'):
+            text = self.sentence_builder.speak()
+            if text:
+                logging.info(f"Manually triggered speech: '{text}'")      
         if key == ord('h'):
             # toggle between 1 and 2 hand modes
             self.max_hands_mode = 2 if self.max_hands_mode == 1 else 1
             self.detector.hands.max_num_hands = self.max_hands_mode
             print(f'Hand detection mode: {self.max_hands_mode} hand(s)')
             
-        # Exit on Escape key or window close
-        if key == 27 or cv2.getWindowProperty(WINDOW_TITLE, cv2.WND_PROP_VISIBLE) < 1:
+        if key == 27:
             return False
+        
+        # Only check window property if we've processed at least a few frames
+        # to avoid false positives during initialization
+        if self.frame_count > 10:
+            if cv2.getWindowProperty(WINDOW_TITLE, cv2.WND_PROP_VISIBLE) < 1:
+                return False
             
         return True
 
@@ -151,7 +188,7 @@ class ChironaApp:
         while True:
             success, frame = self.cap.read()
             if not success:
-                print("Failed to read frame")
+                logging.error("Failed to read frame from camera")
                 break
 
             frame = cv2.flip(frame, 1)
@@ -163,7 +200,7 @@ class ChironaApp:
             # Process first detected hand
             if hands_data:
                 first_hand = hands_data[0]
-                self._process_prediction(first_hand)
+                self._process_prediction(first_hand, hands_data)
 
             # Calculate FPS
             current_time = time.time()
@@ -190,6 +227,12 @@ class ChironaApp:
 
             # Display sentence builder UI
             draw_sentence_builder_ui(frame, self.sentence_builder, current_time)
+            
+            # Display TTS speaking feedback (green "SPEAKING..." while TTS is active)
+            if self.tts and self.tts.is_currently_speaking():
+                from utils.gesture_display import draw_speaking_feedback
+                frame = draw_speaking_feedback(frame, True)
+            
             cv2.imshow(WINDOW_TITLE, frame)
 
             # Break loop if _handle_keypress asks to exit
@@ -200,6 +243,10 @@ class ChironaApp:
 
     def cleanup(self):
         """Release resources."""
+        #shutdown TTS system if initialized
+        if self.tts:
+            self.tts.shutdown()
+
         if self.cap.isOpened():
             self.cap.release()
         cv2.destroyAllWindows()

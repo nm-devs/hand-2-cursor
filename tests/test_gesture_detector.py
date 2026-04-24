@@ -212,19 +212,22 @@ def test_cooldown():
     """Test cooldown mechanism prevents double-triggers."""
     detector = GestureDetector()
     hands = [{'landmarks': create_open_palm()}]
-    
-    # TEST 1: First gesture should be detected
+
+    # TEST 1: First frame builds consistency buffer, second frame triggers
     gesture1 = detector.detect_gesture(hands)
-    assert gesture1 == 'space', f"First gesture should be 'space', got {gesture1}"
-    
-    # TEST 2: Second gesture immediately after should be blocked (cooldown)
+    assert gesture1 is None, f"First frame should build buffer, got {gesture1}"
     gesture2 = detector.detect_gesture(hands)
-    assert gesture2 is None, f"Second gesture should be None (cooldown), got {gesture2}"
-    
-    # TEST 3: Wait for cooldown to expire
-    time.sleep(0.6)
+    assert gesture2 == 'space', f"Second frame should trigger 'space', got {gesture2}"
+
+    # TEST 2: Immediately after should be blocked (cooldown)
     gesture3 = detector.detect_gesture(hands)
-    assert gesture3 == 'space', f"After cooldown, gesture should work, got {gesture3}"
+    assert gesture3 is None, f"Should be None (cooldown), got {gesture3}"
+
+    # TEST 3: Wait for cooldown to expire, then need 2 frames again
+    time.sleep(0.6)
+    gesture4 = detector.detect_gesture(hands)
+    gesture5 = detector.detect_gesture(hands)
+    assert gesture5 == 'space', f"After cooldown, gesture should work, got {gesture5}"
 
 
 if __name__ == '__main__':

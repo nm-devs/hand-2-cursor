@@ -10,7 +10,7 @@ class GestureDetector:
         self.last_gesture_time = {}  # Cooldown tracking for each gesture
         # Different cooldowns for different gestures
         self.cooldown_seconds = 0.5  # Default cooldown for space, backspace, clear
-        self.speak_cooldown_seconds = 0.2  # Shorter cooldown for speak gesture (200ms)
+        self.speak_cooldown_seconds = 1.5  # Increased cooldown for speak gesture to prevent spam
         self.landmark_threshold_spread = 0.16  # normalized distance for spread (open palm) - MUST be open
         self.landmark_threshold_curl = 0.18  # normalized distance for curl (fist) - tighter
         self.landmark_threshold_thumbs = 0.25  # normalized vertical distance for thumbs up
@@ -23,7 +23,7 @@ class GestureDetector:
         """Calculate Euclidean distance between two points."""
         return ((point1.x - point2.x) ** 2 + (point1.y - point2.y) ** 2) ** 0.5
     
-    def _detect_raw_gesture(self, hands_data):
+    def detect_raw_gesture(self, hands_data):
         '''Raw gesture detection without frame smoothing.'''
         if len(hands_data) == 0:
             return None
@@ -110,7 +110,7 @@ class GestureDetector:
         current_time = time.time()
         
         # Get raw gesture detection
-        raw_gesture = self._detect_raw_gesture(hands_data)
+        raw_gesture = self.detect_raw_gesture(hands_data)
         
         if raw_gesture:
             logger.debug(f"Raw gesture detected: {raw_gesture}")
